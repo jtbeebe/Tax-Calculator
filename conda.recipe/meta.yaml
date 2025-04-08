@@ -8,21 +8,26 @@ build:
 
 requirements:
   build:
-    - python
-    - numpy >=1.12.1
-    - pandas >=0.22.0
+    - "python>=3.10, <3.13"
+    - "numpy>=1.26"
+    - "pandas>=2.2"
+    - "bokeh>=2.4"
+    - "paramtools>=0.19.0"
     - numba
-    - toolz
-    - six
-    - bokeh >=0.12.3
+    - curl
+    - openpyxl
+    - behresp
+
   run:
-    - python
-    - numpy >=1.12.1
-    - pandas >=0.22.0
+    - "python>=3.10, <3.13"
+    - "numpy>=1.26"
+    - "pandas>=2.2"
+    - "bokeh>=2.4"
+    - "paramtools>=0.19.0"
     - numba
-    - toolz
-    - six
-    - bokeh >=0.12.3
+    - curl
+    - openpyxl
+    - behresp
 
 test:
   commands:
@@ -31,4 +36,4 @@ test:
     - tc --help
 
 about:
-  home: http://www.github.com/OpenSourcePolicyCenter
+  home: https://github.com/PSLmodels/Tax-Calculator

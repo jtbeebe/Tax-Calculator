@@ -1,48 +1,47 @@
-import versioneer
-versioneer.VCS = 'git'
-versioneer.versionfile_source = 'taxcalc/_version.py'
-versioneer.versionfile_build = 'taxcalc/_version.py'
-versioneer.tag_prefix = ''  # tags are like 1.2.0
-versioneer.parentdir_prefix = 'taxcalc-'  # dirname like 'taxcalc-1.2.0'
+"""
+Tax-Calculator setup.
+"""
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+from setuptools import setup
 
-with open('README.md') as f:
-        longdesc = f.read()
+with open("README.md", "r", encoding="utf-8") as f:
+    longdesc = f.read()
 
-version = versioneer.get_version()
-cmdclass = versioneer.get_cmdclass()
+VERSION = "4.5.0"
 
 config = {
-    'description': 'Tax Calculator',
-    'url': 'https://github.com/OpenSourcePolicyCenter/Tax-Calculator',
-    'download_url': 'https://github.com/OpenSourcePolicyCenter/Tax-Calculator',
-    'description': 'taxcalc',
-    'long_description': longdesc,
-    'version': version,
-    'cmdclass': cmdclass,
-    'license': 'MIT',
-    'packages': ['taxcalc', 'taxcalc.filings', 'taxcalc.filings.forms',
-                 'taxcalc.tbi', 'taxcalc.cli'],
-    'include_package_data': True,
-    'name': 'taxcalc',
-    'install_requires': ['numpy', 'pandas'],
-    'classifiers': [
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'Natural Language :: English',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Topic :: Software Development :: Libraries :: Python Modules'],
-    'tests_require': ['pytest']
+    "description": "Tax-Calculator",
+    "url": "https://github.com/PSLmodels/Tax-Calculator",
+    "download_url": "https://github.com/PSLmodels/Tax-Calculator",
+    "long_description_content_type": "text/markdown",
+    "long_description": longdesc,
+    "version": VERSION,
+    "license": "CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
+    "packages": ["taxcalc", "taxcalc.cli"],
+    "include_package_data": True,
+    "name": "taxcalc",
+    "install_requires": [
+        "numpy>=1.26",
+        "pandas>=2.2",
+        "bokeh>=2.4",
+        "numba",
+        "paramtools>=0.19.0",
+    ],
+    "classifiers": [
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Natural Language :: English",
+        "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
+    "tests_require": ["pytest"],
+    "entry_points": {"console_scripts": ["tc=taxcalc.cli.tc:cli_tc_main"]},
 }
 
 setup(**config)

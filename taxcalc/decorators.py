@@ -1,21 +1,30 @@
 """
-Implement numba JIT decorators used to speed-up Tax-Calculator functions in
-the functions.py module.
+Implement numba JIT decorators used to speed-up the execution
+of Tax-Calculator functions in the calcfunctions.py module.
 """
 # CODING-STYLE CHECKS:
-# pep8 --ignore=E402 decorators.py
+# pycodestyle decorators.py
 # pylint --disable=locally-disabled decorators.py
 
+import os
+import io
 import ast
 import inspect
-import toolz
-from six import StringIO
+import numba
 from taxcalc.policy import Policy
+
+
+DO_JIT = True
+# One way to use the Python debugger is to do these two things:
+#  (a) change the line immediately above this comment from
+#      "DO_JIT = True" to "DO_JIT = False", and
+#  (b) import pdb package and call pdb.set_trace() in either the
+#      calculator.py or calcfunctions.py file.
 
 
 def id_wrapper(*dec_args, **dec_kwargs):  # pylint: disable=unused-argument
     """
-    Function wrapper when numba package is not available or when debugging
+    Function wrapper when numba package is not being used during debugging.
     """
     def wrap(fnc):
         """
@@ -30,25 +39,17 @@ def id_wrapper(*dec_args, **dec_kwargs):  # pylint: disable=unused-argument
     return wrap
 
 
-try:
-    import numba
-    jit = numba.jit  # pylint: disable=invalid-name
-    DO_JIT = True
-except (ImportError, AttributeError):
-    jit = id_wrapper  # pylint: disable=invalid-name
-    DO_JIT = False
-# One way to use the Python debugger is to do these two things:
-#    (a) uncomment the two lines below item (b) in this comment, and
-#    (b) import pdb package and call pdb.set_trace() in calculator.py
-# jit = id_wrapper
-# DO_JIT = False
+if DO_JIT is False or 'NOTAXCALCJIT' in os.environ:
+    JIT = id_wrapper
+else:
+    JIT = numba.jit
 
 
 class GetReturnNode(ast.NodeVisitor):
     """
     A NodeVisitor to get the return tuple names from a calc-style function.
     """
-    def visit_Return(self, node):  # pylint: disable=invalid-name,no-self-use
+    def visit_Return(self, node):  # pylint: disable=invalid-name
         """
         visit_Return is used by NodeVisitor.visit method.
         """
@@ -83,12 +84,12 @@ def create_apply_function_string(sigout, sigin, parameters):
     -------
     a String representing the function
     """
-    fstr = StringIO()
+    fstr = io.StringIO()
     total_len = len(sigout) + len(sigin)
     out_args = ["x_" + str(i) for i in range(0, len(sigout))]
     in_args = ["x_" + str(i) for i in range(len(sigout), total_len)]
 
-    fstr.write("def ap_func({0}):\n".format(",".join(out_args + in_args)))
+    fstr.write(f"def ap_func({','.join(out_args + in_args)}):\n")
     fstr.write("  for i in range(len(x_0)):\n")
     out_index = [x + "[i]" for x in out_args]
     in_index = []
@@ -121,7 +122,7 @@ def create_toplevel_function_string(args_out, args_in, pm_or_pf):
     -------
     a String representing the function
     """
-    fstr = StringIO()
+    fstr = io.StringIO()
     fstr.write("def hl_func(pm, pf")
     fstr.write("):\n")
     fstr.write("    from pandas import DataFrame\n")
@@ -141,6 +142,9 @@ def create_toplevel_function_string(args_out, args_in, pm_or_pf):
     fstr.write("        (" + ", ".join(outs) + ") = \\\n")
     fstr.write("        " + "applied_f(")
     for ppp, attr in zip(pm_or_pf, args_out + args_in):
+        # Bring Policy parameter values down a dimension.
+        if ppp == "pm":
+            attr += "[0]"
         fstr.write("get_values(" + ppp + "." + attr + ")" + ", ")
     fstr.write(")\n")
     fstr.write("    header = [")
@@ -181,7 +185,7 @@ def make_apply_function(func, out_args, in_args, parameters,
     apply-style function
     """
     if do_jit:
-        jitted_f = jit(**kwargs)(func)
+        jitted_f = JIT(**kwargs)(func)
     else:
         jitted_f = func
     apfunc = create_apply_function_string(out_args, in_args, parameters)
@@ -190,7 +194,7 @@ def make_apply_function(func, out_args, in_args, parameters,
     eval(func_code,  # pylint: disable=eval-used
          {"jitted_f": jitted_f}, fakeglobals)
     if do_jit:
-        return jit(**kwargs)(fakeglobals['ap_func'])
+        return JIT(**kwargs)(fakeglobals['ap_func'])
     return fakeglobals['ap_func']
 
 
@@ -205,7 +209,7 @@ def apply_jit(dtype_sig_out, dtype_sig_in, parameters=None, **kwargs):
         """
         make_wrapper function nested in apply_jit function.
         """
-        theargs = inspect.getargspec(func).args
+        theargs = inspect.getfullargspec(func).args
         jitted_apply = make_apply_function(func, dtype_sig_out,
                                            dtype_sig_in, parameters, **kwargs)
 
@@ -235,10 +239,11 @@ def apply_jit(dtype_sig_out, dtype_sig_in, parameters=None, **kwargs):
 
 def iterate_jit(parameters=None, **kwargs):
     """
-    Public decorator for a calc-style function (see functions.py) that
+    Public decorator for a calc-style function (see calcfunctions.py) that
     transforms the calc-style function into an apply-style function that
-    can be called by Calculator class methods (see calculate.py).
+    can be called by Calculator class methods (see calculator.py).
     """
+
     if not parameters:
         parameters = []
 
@@ -247,18 +252,22 @@ def iterate_jit(parameters=None, **kwargs):
         make_wrapper function nested in iterate_jit decorator
         wraps specified func using apply_jit.
         """
+        # pylint: disable=too-many-locals
         # Get the input arguments from the function
-        in_args = inspect.getargspec(func).args
+        in_args = inspect.getfullargspec(func).args
         # Get the numba.jit arguments
-        jit_args = inspect.getargspec(jit).args + ['nopython']
-        kwargs_for_jit = toolz.keyfilter(jit_args.__contains__, kwargs)
+        jit_args_list = inspect.getfullargspec(JIT).args + ['nopython']
+        kwargs_for_jit = {}
+        for key, val in kwargs.items():
+            if key in jit_args_list:
+                kwargs_for_jit[key] = val
 
         # Any name that is a parameter
         # Boolean flag is given special treatment.
         # Identify those names here
-        dd_key_list = list(Policy.default_data(metadata=True).keys())
-        allowed_parameters = dd_key_list
-        allowed_parameters += list(arg[1:] for arg in dd_key_list)
+        param_list = Policy.parameter_list()
+        allowed_parameters = param_list
+        allowed_parameters += list(arg[1:] for arg in param_list)
         additional_parameters = [arg for arg in in_args if
                                  arg in allowed_parameters]
         additional_parameters += parameters
@@ -291,6 +300,10 @@ def iterate_jit(parameters=None, **kwargs):
             wrapper function nested in make_wrapper function nested
             in iterate_jit decorator.
             """
+            # os TESTING environment only accepts string arguments
+            if os.getenv('TESTING') == 'True':
+                return func(*args, **kwargs)
+
             in_arrays = []
             pm_or_pf = []
             for farg in all_out_args + in_args:

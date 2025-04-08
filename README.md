@@ -1,74 +1,24 @@
-Developing Tax-Calculator
-=========================
-
-This document tells you how to begin contributing to Tax-Calculator by
-reporting a bug, improving the documentation or making an enhancement
-to the Python source code.  If you only want to use Tax-Calculator,
-you should begin by reading the [user
-documentation](http://open-source-economics.github.io/Tax-Calculator/)
-that describes how to use Tax-Calculator on your own computer (without
-doing any programming) and how to use the Tax-Calculator web application
-called [TaxBrain](http://www.ospc.org/taxbrain/).  If you want the most
-flexibility in using Tax-Calculator on your own computer, start
-by reading our [Cookbook of Tested Recipes for Python Programming with
-Tax-Calculator](http://open-source-economics.github.io/Tax-Calculator/cookbook.html).
+| | |
+| --- | --- |
+| Org | [![PSL cataloged](https://img.shields.io/badge/PSL-cataloged-a0a0a0.svg)](https://www.PSLmodels.org) [![OS License: CCO-1.0](https://img.shields.io/badge/OS%20License-CCO%201.0-yellow)](https://github.com/PSLmodels/Tax-Calculator/blob/master/LICENSE) [![Jupyter Book Badge](https://jupyterbook.org/badge.svg)](https://pslmodels.github.io/Tax-Calculator/) |
+| Package | [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3108/)  [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3118/) [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3121/) [![PyPI Latest Release](https://img.shields.io/pypi/v/taxcalc.svg)](https://pypi.org/project/taxcalc/) [![PyPI Downloads](https://img.shields.io/pypi/dm/taxcalc.svg?label=PyPI%20downloads)](https://pypi.org/project/taxcalc/) [![Anaconda](https://img.shields.io/conda/dn/conda-forge/taxcalc?color=brightgreen&label=downloads&logo=conda-forge)](https://anaconda.org/conda-forge/taxcalc)|
+| Testing | ![example event parameter](https://github.com/PSLmodels/Tax-Calculator/actions/workflows/build_and_test.yml/badge.svg?branch=master) ![example event parameter](https://github.com/PSLmodels/Tax-Calculator/actions/workflows/deploy_jupyterbook.yml/badge.svg?branch=master)  [![Codecov](https://codecov.io/gh/PSLmodels/Tax-Calculator/branch/master/graph/badge.svg)](https://codecov.io/gh/PSLmodels/Tax-Calculator) |
 
 
-What is Tax-Calculator?
------------------------
+Tax-Calculator
+==============
 
-Tax-Calculator simulates the US federal individual income tax
-system.  In conjunction with micro data that represent the US
-population and a set of behavioral assumptions, Tax-Calculator can
-be used to conduct revenue scoring and distributional analyses of tax
-policies.  Tax-Calculator is written in Python, an interpreted
-language that can execute on Windows, Mac, or Linux.
+Tax-Calculator is an open-source microsimulation model for static
+analysis of USA federal income and payroll taxes.
 
+We are seeking contributors and maintainers.  If you are interested in
+joining the project as a contributor or maintainer, open a new
+[issue](https://github.com/PSLmodels/Tax-Calculator/issues) and ping
+[@MattHJensen](https://github.com/MattHJensen/) or
+[@jdebacker](https://github.com/jdebacker/) -- or just jump right in.
+The [contributor
+guide](https://taxcalc.pslmodels.org/contributing/contributor_guide.html)
+explains the workflow involved in contributing model enhancements.
 
-Disclaimer
-----------
-
-Results will change as the underlying models improve. A fundamental
-reason for adopting open source methods in this project is so that
-people from all backgrounds can contribute to the models that our
-society uses to assess economic policy; when community-contributed
-improvements are incorporated, the model will produce different
-results.
-
-
-Getting Started
----------------
-
-If you want to **report a bug**, create a new issue
-[here](https://github.com/open-source-economics/Tax-Calculator/issues)
-providing details on what you think is wrong with Tax-Calculator.
-
-If you want to **request an enhancement**, create a new issue
-[here](https://github.com/open-source-economics/Tax-Calculator/issues)
-providing details on what you think should be added to Tax-Calculator.
-
-If you want to **propose code changes**, follow the directions in the
-[Contributor
-Guide](http://taxcalc.readthedocs.io/en/latest/contributor_guide.html)
-on how to clone the Tax-Calculator git repository.  Before developing
-any code changes be sure to read completely the Contributor Guide and
-then read about our [coding style](CODING.md) and [testing
-procedures](TESTING.md).  The Tax-Calculator [release
-history](RELEASES.md) provides a summary of past and current
-development work.
-
-If you are relying on Tax-Calculator capabilities in your own project,
-be sure to read the definition of the [Tax-Calculator Public
-API](http://taxcalc.readthedocs.io/en/latest/public_api.html).
-
-
-Citing Tax-Calculator
----------------------
-
-Please cite the source of your analysis as "Tax-Calculator release
-#.#.#, author's calculations." If you wish to link to Tax-Calculator,
-http://open-source-economics.github.io/Tax-Calculator/ is
-preferred. Additionally, we strongly recommend that you describe the
-input data used, and provide a link to the materials required to
-replicate your analysis or, at least, note that those materials are
-available upon request.
+Complete documentation is available
+[here](https://PSLmodels.github.io/Tax-Calculator/).

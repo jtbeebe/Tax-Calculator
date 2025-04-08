@@ -1,173 +1,260 @@
 """
-Tests for Tax-Calculator ParametersBase class and JSON parameter files.
+Tests for Tax-Calculator Parameters class and JSON parameter files.
 """
 # CODING-STYLE CHECKS:
-# pep8 --ignore=E402 test_parameters.py
+# pycodestyle test_parameters.py
 # pylint --disable=locally-disabled test_parameters.py
 
+import copy
 import os
 import json
 import math
-import six
+import tempfile
 import numpy as np
+import paramtools
 import pytest
-# pylint: disable=import-error
-from taxcalc import ParametersBase, Policy, Consumption
+from taxcalc.parameters import Parameters, is_paramtools_format
+from taxcalc.policy import Policy
+from taxcalc.consumption import Consumption
+from taxcalc.growdiff import GrowDiff
+from taxcalc.growfactors import GrowFactors
 
 
-def test_instantiation_and_usage():
+# Test specification and use of simple Parameters-derived class that has
+# no vector parameters and has no (wage or price) indexed parameters.
+# This derived class is called Params and it contains one of each of the
+# four types of parameters.
+#
+# The following pytest fixture specifies the JSON DEFAULTS file for the
+# Params class, which is defined in the test_params_class function.
+
+
+PARAMS_JSON = json.dumps({
+    "schema": {
+        "labels": {
+            "year": {
+                "type": "int",
+                "validators": {"range": {"min": 2001, "max": 2010}}
+            },
+            "label": {
+                "type": "str",
+                "validators": {"choice": {"choices": ["label1", "label2"]}}
+            }
+        },
+        "operators": {
+            "array_first": True,
+            "label_to_extend": "year"
+        }
+    },
+    "real_param": {
+        "title": "Real (float) parameter",
+        "description": "",
+        "type": "float",
+        "value": 0.5,
+        "validators": {"range": {"min": 0, "max": 1}}
+    },
+    "int_param": {
+        "title": "Integer parameter",
+        "description": "",
+        "type": "int",
+        "value": 2,
+        "validators": {"range": {"min": 0, "max": 9}}
+    },
+    "bool_param": {
+        "title": "Boolean parameter",
+        "description": "",
+        "type": "bool",
+        "value": True,
+    },
+    "str_param": {
+        "title": "String parameter",
+        "description": "",
+        "type": "str",
+        "value": "linear",
+        "validators": {"choice": {"choices": ["linear", "nonlinear", "cubic"]}}
+    },
+    "label_param": {
+        "title": "Parameter that uses labels.",
+        "description": "",
+        "type": "int",
+        "value": [
+            {"label": "label1", "year": 2001, "value": 2},
+            {"label": "label2", "year": 2001, "value": 3}
+        ],
+        "validators": {"range": {"min": 0, "max": 9}}
+    }
+})
+
+
+@pytest.fixture(scope='module', name='params_json_file')
+def fixture_params_json_file():
     """
-    Test ParametersBase instantiation and usage.
+    Define JSON DEFAULTS file for Parameters-derived Params class.
     """
-    pbase = ParametersBase()
-    assert pbase
-    assert pbase.inflation_rates() is None
-    assert pbase.wage_growth_rates() is None
-    syr = 2010
-    nyrs = 10
-    pbase.initialize(start_year=syr, num_years=nyrs)
-    # pylint: disable=protected-access
-    with pytest.raises(ValueError):
-        pbase.set_year(syr - 1)
+    with tempfile.NamedTemporaryFile(mode='a', delete=False) as pfile:
+        pfile.write(PARAMS_JSON + '\n')
+    pfile.close()
+    yield pfile
+    os.remove(pfile.name)
+
+
+@pytest.mark.parametrize("revision, expect", [
+    ({}, ""),
+    ({'real_param': {2004: 1.9}}, "error"),
+    ({'int_param': {2004: [3.6]}}, "raise"),
+    ({"int_param": {2004: [3]}}, "raise"),
+    ({"label_param": {2004: [1, 2]}}, "noerror"),
+    ({"label_param": {2004: [[1, 2]]}}, "raise"),
+    ({"label_param": {2004: [1, 2, 3]}}, "raise"),
+    ({'bool_param': {2004: [4.9]}}, "raise"),
+    ({'str_param': {2004: [9]}}, "raise"),
+    ({'str_param': {2004: 'nonlinear'}}, "noerror"),
+    ({'str_param': {2004: 'unknownvalue'}}, "error"),
+    ({'str_param': {2004: ['nonlinear']}}, "raise"),
+    ({'real_param': {2004: 'linear'}}, "raise"),
+    ({'real_param': {2004: [0.2, 0.3]}}, "raise"),
+    ({'real_param-indexed': {2004: True}}, "raise"),
+    ({'unknown_param-indexed': {2004: False}}, "raise")
+])
+def test_params_class(revision, expect, params_json_file):
+    """
+    Specifies Params class and tests it.
+    """
+
+    class Params(Parameters):
+        """
+        The Params class is derived from the abstract base Parameter class.
+        """
+        # pylint: disable=too-few-public-methods,abstract-method
+        DEFAULTS_FILE_NAME = params_json_file.name
+        DEFAULTS_FILE_PATH = ''
+        START_YEAR = 2001
+        LAST_YEAR = 2010
+        NUM_YEARS = LAST_YEAR - START_YEAR + 1
+
+        def __init__(self):
+            super().__init__()
+            self.initialize(Params.START_YEAR, Params.NUM_YEARS)
+
+        def update_params(self, revision,
+                          print_warnings=True, raise_errors=True):
+            """
+            Update parameters given specified revision dictionary.
+            """
+            self._update(revision, print_warnings, raise_errors)
+
+    # test Params class
+    prms = Params()
+
     with pytest.raises(NotImplementedError):
-        pbase._params_dict_from_json_file()
-    with pytest.raises(ValueError):
-        pbase._update([])
-    with pytest.raises(ValueError):
-        pbase._update({})
-    with pytest.raises(ValueError):
-        pbase._update({(syr + nyrs): {}})
-    with pytest.raises(ValueError):
-        pbase._update({syr: []})
-    # pylint: disable=no-member
-    with pytest.raises(ValueError):
-        ParametersBase._expand_array({}, True, True, [0.02], 1)
-    threedarray = np.array([[[1, 1]], [[1, 1]], [[1, 1]]])
-    with pytest.raises(ValueError):
-        ParametersBase._expand_array(threedarray, True, True, [0.02, 0.02], 2)
+        prms.set_rates()
+
+    if revision == {}:
+        assert isinstance(prms, Params)
+        assert prms.start_year == 2001
+        assert prms.current_year == 2001
+        assert prms.end_year == 2010
+        assert prms.inflation_rates() == []
+        assert prms.wage_growth_rates() == []
+        prms.set_year(2010)
+        assert prms.current_year == 2010
+        with pytest.raises(paramtools.ValidationError):
+            prms.set_year(2011)
+        return
+
+    if expect == 'raise':
+        with pytest.raises(paramtools.ValidationError):
+            prms.update_params(revision)
+    elif expect == 'noerror':
+        prms.update_params(revision)
+        assert not prms.errors
+    elif expect == 'error':
+        with pytest.raises(paramtools.ValidationError):
+            prms.update_params(revision)
+        assert prms.errors
+    elif expect == 'warn':
+        with pytest.raises(paramtools.ValidationError):
+            prms.update_params(revision)
+        assert prms.warnings
 
 
 @pytest.mark.parametrize("fname",
-                         [("behavior.json"),
-                          ("consumption.json"),
-                          ("current_law_policy.json"),
+                         [("consumption.json"),
+                          ("policy_current_law.json"),
                           ("growdiff.json")])
 def test_json_file_contents(tests_path, fname):
     """
-    Check contents of JSON parameter files.
+    Check contents of JSON parameter files in Tax-Calculator/taxcalc directory.
     """
-    # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-    # specify test information
-    reqkeys = ['long_name', 'description',
-               'section_1', 'section_2', 'notes',
-               'row_var', 'row_label',
-               'start_year', 'cpi_inflated',
-               'col_var', 'col_label',
-               'value']
+    # pylint: disable=too-many-locals,too-many-branches
     first_year = Policy.JSON_START_YEAR
     last_known_year = Policy.LAST_KNOWN_YEAR  # for indexed parameter values
-    num_known_years = last_known_year - first_year + 1
-    long_params = ['_II_brk1', '_II_brk2', '_II_brk3', '_II_brk4',
-                   '_II_brk5', '_II_brk6', '_II_brk7',
-                   '_PT_brk1', '_PT_brk2', '_PT_brk3', '_PT_brk4',
-                   '_PT_brk5', '_PT_brk6', '_PT_brk7',
-                   '_PT_excl_wagelim_thd',
-                   '_ALD_BusinessLosses_c',
-                   '_STD', '_II_em',
-                   '_AMT_em', '_AMT_em_ps',
-                   '_ID_AllTaxes_c']
-    long_known_years = 2026 - first_year + 1  # for TCJA-revised long_params
-    # read JSON parameter file into a dictionary
-    path = os.path.join(tests_path, '..', fname)
-    pfile = open(path, 'r')
-    allparams = json.load(pfile)
-    pfile.close()
-    assert isinstance(allparams, dict)
+    known_years = set(range(first_year, last_known_year + 1))
+    # for TCJA-reverting long_params
+    long_known_years = set(range(first_year, last_known_year + 1))
+    long_known_years.add(2026)
     # check elements in each parameter sub-dictionary
     failures = ''
+    path = os.path.join(tests_path, "..", fname)
+    with open(path, 'r', encoding='utf-8') as f:
+        allparams = json.loads(f.read())
     for pname in allparams:
-        param = allparams[pname]
-        assert isinstance(param, dict)
+        if pname == "schema":
+            continue
         # check that param contains required keys
-        for key in reqkeys:
-            assert key in param
-        # check for non-empty long_name and description strings
-        assert isinstance(param['long_name'], six.string_types)
-        if not param['long_name']:
-            assert '{} long_name'.format(pname) == 'empty string'
-        assert isinstance(param['description'], six.string_types)
-        if not param['description']:
-            assert '{} description'.format(pname) == 'empty string'
-        # check that row_var is FLPDYR
-        assert param['row_var'] == 'FLPDYR'
-        # check that start_year equals first_year
-        syr = param['start_year']
-        assert isinstance(syr, int) and syr == first_year
-        # check that cpi_inflated is boolean
-        assert isinstance(param['cpi_inflated'], bool)
-        if fname != 'current_law_policy.json':
-            assert param['cpi_inflated'] is False
-        # check that row_label is list
-        rowlabel = param['row_label']
-        assert isinstance(rowlabel, list)
-        # check all row_label values
-        for idx in range(0, len(rowlabel)):
-            cyr = first_year + idx
-            assert int(rowlabel[idx]) == cyr
-        # check type and dimension of value
-        value = param['value']
-        assert isinstance(value, list)
-        assert len(value) == len(rowlabel)
-        # check that col_var and col_label are consistent
-        cvar = param['col_var']
-        assert isinstance(cvar, six.string_types)
-        clab = param['col_label']
-        if cvar == '':
-            assert isinstance(clab, six.string_types) and clab == ''
-        else:
-            assert isinstance(clab, list)
-            # check different possible col_var values
-            if cvar == 'MARS':
-                assert len(clab) == 5
-            elif cvar == 'EIC':
-                assert len(clab) == 4
-            elif cvar == 'idedtype':
-                assert len(clab) == 7
-            elif cvar == 'c00100':
-                pass
-            else:
-                assert cvar == 'UNKNOWN col_var VALUE'
-            # check length of each value row
-            for valuerow in value:
-                assert len(valuerow) == len(clab)
-        # check that indexed parameters have all known years in rowlabel list
-        # form_parameters are those whose value is available only on IRS form
-        form_parameters = ['_AMT_em_pe',
-                           '_ETC_pe_Single',
-                           '_ETC_pe_Married']
-        if param['cpi_inflated']:
-            error = False
-            known_years = num_known_years
-            if pname in long_params:
-                known_years = long_known_years
-            if pname in form_parameters:
-                if len(rowlabel) != (known_years - 1):
-                    error = True
-            else:
-                if len(rowlabel) != known_years:
-                    error = True
-            if error:
-                msg = 'param:<{}>; len(rowlabel)={}; known_years={}'
-                fail = msg.format(pname, len(rowlabel), known_years)
-                failures += fail + '\n'
+        param = allparams[pname]
+        # check that indexable and indexed are False in many files
+        if fname != 'policy_current_law.json':
+            assert param.get('indexable', False) is False
+            assert param.get('indexed', False) is False
+        # check that indexable is True when indexed is True
+        if param.get('indexed', False) and not param.get('indexable', False):
+            msg = (
+                f'param:<{pname}>; '
+                f'indexed={param.get("indexed", False)}; '
+                f'indexable={param.get("indexable", False)}\n'
+            )
+            failures += msg
+        # check that indexable param has value_type float
+        if param.get('indexable', False) and param['type'] != 'float':
+            msg = (
+                f'param:<{pname}>; '
+                f'type={param["type"]}; '
+                f'indexable={param.get("indexable", False)}\n'
+            )
+            failures += msg
+        # ensure that indexable is False when value_type is not real
+        if param.get('indexable', False) and param['type'] != 'float':
+            msg = (
+                f'param:<{pname}>; '
+                f'indexable={param.get("indexable", False)}; '
+                f'type={param["value_type"]}\n'
+            )
+            failures += msg
+    o = None
+    if fname == "consumption.json":
+        o = Consumption()
+    elif fname == "policy_current_law.json":
+        o = Policy()
+    elif fname == "growdiff.json":
+        o = GrowDiff()
+    param_list = []
+    for k in o:
+        if k[0].isupper():  # find parameters by case of first letter
+            param_list.append(k)
+    for param in param_list:
+        for y in known_years:
+            o.set_year(y)
+            if np.isnan(getattr(o, param)).any():
+                msg = f'param:<{param}>; not found in year={y}\n'
+                failures += msg
     if failures:
         raise ValueError(failures)
 
 
 @pytest.mark.parametrize("jfname, pfname",
-                         [("behavior.json", "behavior.py"),
-                          ("consumption.json", "consumption.py"),
-                          ("current_law_policy.json", "functions.py"),
+                         [("consumption.json", "consumption.py"),
+                          ("policy_current_law.json", "calcfunctions.py"),
                           ("growdiff.json", "growdiff.py")])
 def test_parameters_mentioned(tests_path, jfname, pfname):
     """
@@ -175,68 +262,209 @@ def test_parameters_mentioned(tests_path, jfname, pfname):
     """
     # read JSON parameter file into a dictionary
     path = os.path.join(tests_path, '..', jfname)
-    pfile = open(path, 'r')
-    allparams = json.load(pfile)
-    pfile.close()
+    with open(path, 'r', encoding='utf-8') as pfile:
+        allparams = json.load(pfile)
     assert isinstance(allparams, dict)
     # read PYTHON code file text
+    # pylint: disable=consider-using-join
     if pfname == 'consumption.py':
         # consumption.py does not explicitly name the parameters
         code_text = ''
         for var in Consumption.RESPONSE_VARS:
-            code_text += 'MPC_{}\n'.format(var)
+            code_text += f'MPC_{var}\n'
+        for var in Consumption.BENEFIT_VARS:
+            code_text += f'BEN_{var}_value\n'
+    elif pfname == 'growdiff.py':
+        # growdiff.py does not explicitly name the parameters
+        code_text = ''
+        for var in GrowFactors.VALID_NAMES:
+            code_text += f'{var}\n'
     else:
         # parameters are explicitly named in PYTHON file
         path = os.path.join(tests_path, '..', pfname)
-        pfile = open(path, 'r')
-        code_text = pfile.read()
-        pfile.close()
+        with open(path, 'r', encoding='utf-8') as pfile:
+            code_text = pfile.read()
+    # pylint: enable=consider-using-join
     # check that each param (without leading _) is mentioned in code text
     for pname in allparams:
+        if pname == "schema":
+            continue
         assert pname[1:] in code_text
 
 
 # following tests access private methods, so pylint: disable=protected-access
+
+class ArrayParams(Parameters):
+    """ArrayParams class"""
+    defaults = {
+        "schema": {
+            "labels": {
+                "year": {
+                    "type": "int",
+                    "validators": {"range": {"min": 2013, "max": 2028}}
+                },
+                "MARS": {
+                    "type": "str",
+                    "validators": {
+                        "choice": {
+                            "choices": [
+                                "single",
+                                "joint",
+                                "mseparate",
+                                "headhh",
+                                "widow",
+                                # test value of II_brk2 has 6 columns
+                                "extra",
+                            ]
+                        }
+                    }
+                },
+                "idedtype": {
+                    "type": "str",
+                    "validators": {
+                        "choice": {"choices": ["med", "sltx", "retx"]}
+                    }
+                }
+            },
+            "additional_members": {
+                "indexable": {
+                    "type": "bool"
+                },
+                "indexed": {
+                    "type": "bool"
+                },
+            },
+            "operators": {
+                "array_first": True,
+                "label_to_extend": "year"
+            }
+        },
+        "one_dim": {
+            "title": "One dimension parameter",
+            "description": "",
+            "type": "float",
+            "indexed": True,
+            "indexable": True,
+            "value": [{"year": 2013, "value": 5}]
+        },
+        "two_dim": {
+            "title": "Two dimension parameter",
+            "description": "",
+            "type": "float",
+            "indexed": True,
+            "indexable": True,
+            "value": [
+                {"year": 2013, "idedtype": "med", "value": 1},
+                {"year": 2013, "idedtype": "sltx", "value": 2},
+                {"year": 2013, "idedtype": "retx", "value": 3}
+            ]
+        },
+        "II_brk2": {
+            "title": "II_brk2",
+            "description": "",
+            "type": "float",
+            "indexed": True,
+            "indexable": True,
+            "value": [
+                {"year": 2013, "MARS": "single", "value": 1},
+                {"year": 2013, "MARS": "joint", "value": 2},
+                {"year": 2013, "MARS": "mseparate", "value": 3},
+                {"year": 2013, "MARS": "headhh", "value": 2},
+                {"year": 2013, "MARS": "widow", "value": 3},
+                {"year": 2013, "MARS": "extra", "value": 3},
+            ]
+        }
+    }
+
+    # These will be controlled directly through the extend method.
+    label_to_extend = None
+    array_first = False
+
+    START_YEAR = 2013
+    LAST_YEAR = 2035
+    NUM_YEARS = LAST_YEAR - START_YEAR + 1
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            ArrayParams.START_YEAR,
+            ArrayParams.NUM_YEARS,
+            **kwargs
+        )
+        self._gfactors = GrowFactors()
+        self._inflation_rates = [0.02] * self.num_years
+        self._wage_growth_rates = [0.03] * self.num_years
+
+    def update_params(self, revision,
+                      print_warnings=True, raise_errors=True):
+        """
+        Update parameters given specified revision dictionary.
+        """
+        self._update(revision, print_warnings, raise_errors)
+
+    def set_rates(self):
+        """Method docstring"""
 
 
 def test_expand_xd_errors():
     """
     One of several _expand_?D tests.
     """
-    dct = dict()
-    with pytest.raises(ValueError):
-        ParametersBase._expand_1D(dct, inflate=False, inflation_rates=[],
-                                  num_years=10)
-    with pytest.raises(ValueError):
-        ParametersBase._expand_2D(dct, inflate=False, inflation_rates=[],
-                                  num_years=10)
+    params = ArrayParams(label_to_extend=None, array_first=False)
+    with pytest.raises(paramtools.ValidationError):
+        params.extend(label="year", label_values=[1, 2, 3])
+
+
+def test_expand_empty():
+    """Test docstring"""
+    params = ArrayParams(label_to_extend=None, array_first=False)
+    params.sort_values()
+    one_dim = copy.deepcopy(params.one_dim)
+
+    params.extend(label="year", label_values=[])
+
+    params.sort_values()
+    assert params.one_dim == one_dim
 
 
 def test_expand_1d_scalar():
-    """
-    One of several _expand_?D tests.
-    """
+    """Test docstring"""
+    yrs = 12
     val = 10.0
-    exp = np.array([val * math.pow(1.02, i) for i in range(0, 10)])
-    res = ParametersBase._expand_1D(np.array([val]),
-                                    inflate=True, inflation_rates=[0.02] * 10,
-                                    num_years=10)
+    exp = np.array([val * math.pow(1.02, i) for i in range(0, yrs)])
+
+    yrslist = list(range(2013, 2013 + 12))
+    params = ArrayParams(label_to_extend=None, array_first=False)
+    params.adjust({"one_dim": val})
+    params.extend(params=["one_dim"], label="year", label_values=yrslist)
+    res = params.to_array("one_dim", year=yrslist)
     assert np.allclose(exp, res, atol=0.01, rtol=0.0)
+
+    params = ArrayParams(label_to_extend=None, array_first=False)
+    params.adjust({"one_dim": val})
+    params.extend(params=["one_dim"], label="year", label_values=[2013])
+    res = params.to_array("one_dim", year=2013)
+    assert np.allclose(np.array([val]), res, atol=0.01, rtol=0.0)
 
 
 def test_expand_2d_short_array():
     """
     One of several _expand_?D tests.
     """
-    ary = np.array([[1., 2., 3.]])
     val = np.array([1., 2., 3.])
     exp2 = np.array([val * math.pow(1.02, i) for i in range(1, 5)])
     exp1 = np.array([1., 2., 3.])
     exp = np.zeros((5, 3))
     exp[:1] = exp1
     exp[1:] = exp2
-    res = ParametersBase._expand_2D(ary, inflate=True,
-                                    inflation_rates=[0.02] * 5, num_years=5)
+
+    params = ArrayParams(array_first=False, label_to_extend=None)
+    years = [2013, 2014, 2015, 2016, 2017]
+    params.extend(
+        params=["two_dim"],
+        label="year",
+        label_values=years,
+    )
+    res = params.to_array("two_dim", year=years)
     assert np.allclose(exp, res, atol=0.01, rtol=0.0)
 
 
@@ -257,8 +485,12 @@ def test_expand_2d_variable_rates():
     exp = np.zeros((5, 3))
     exp[:1] = exp1
     exp[1:] = exp2
-    res = ParametersBase._expand_2D(ary, inflate=True,
-                                    inflation_rates=irates, num_years=5)
+
+    params = ArrayParams(array_first=False, label_to_extend=None)
+    params._inflation_rates = irates
+    years = [2013, 2014, 2015, 2016, 2017]
+    params.extend(params=["two_dim"], label="year", label_values=years)
+    res = params.to_array("two_dim", year=years)
     assert np.allclose(exp, res, atol=0.01, rtol=0.0)
 
 
@@ -270,10 +502,21 @@ def test_expand_2d_already_filled():
     _II_brk2 = [[36000., 72250., 36500., 48600., 72500., 36250.],
                 [38000., 74000., 36900., 49400., 73800., 36900.],
                 [40000., 74900., 37450., 50200., 74900., 37450.]]
-    res = ParametersBase._expand_2D(np.array(_II_brk2),
-                                    inflate=True, inflation_rates=[0.02] * 5,
-                                    num_years=3)
-    np.allclose(res, np.array(_II_brk2), atol=0.01, rtol=0.0)
+
+    years = [2013, 2014, 2015]
+    params = ArrayParams(
+        array_first=False,
+        label_to_extend=None,
+    )
+    params.adjust({
+        "II_brk2": params.from_array("II_brk2", np.array(_II_brk2), year=years)
+    })
+
+    params.extend(
+        params=["II_brk2"], label="year", label_values=years
+    )
+    res = params.to_array("II_brk2", year=years)
+    assert np.allclose(res, np.array(_II_brk2), atol=0.01, rtol=0.0)
 
 
 def test_expand_2d_partial_expand():
@@ -298,89 +541,74 @@ def test_expand_2d_partial_expand():
            [38000.0, 74000.0, 36900.0, 49400.0, 73800.0, 36900.0],
            [40000.0, 74900.0, 37450.0, 50200.0, 74900.0, 37450.0],
            [exp1, exp2, exp3, exp4, exp5, exp6]]
-    res = ParametersBase._expand_2D(np.array(_II_brk2),
-                                    inflate=True, inflation_rates=inf_rates,
-                                    num_years=4)
+
+    years = [2013, 2014, 2015]
+    params = ArrayParams(array_first=False, label_to_extend=None)
+    params.adjust({
+        "II_brk2": params.from_array(
+            "II_brk2",
+            np.array(_II_brk2),
+            year=years
+        )
+    })
+    params._inflation_rates[:3] = inf_rates
+    params.extend(
+        params=["II_brk2"], label="year", label_values=years + [2016]
+    )
+    res = params.to_array("II_brk2", year=years + [2016])
     assert np.allclose(res, exp, atol=0.01, rtol=0.0)
 
 
-@pytest.mark.parametrize('json_filename',
-                         ['current_law_policy.json',
-                          'behavior.json',
-                          'consumption.json',
-                          'growdiff.json'])
-def test_bool_int_value_info(tests_path, json_filename):
-    """
-    Check consistency of boolean_value and integer_value info in
-    JSON parameter files.
-    """
-    path = os.path.join(tests_path, '..', json_filename)
-    with open(path, 'r') as pfile:
-        pdict = json.load(pfile)
-    maxint = np.iinfo(np.int8).max
-    for param in sorted(pdict.keys()):
-        # check that boolean_value always implies integer_value
-        if pdict[param]['boolean_value'] and not pdict[param]['integer_value']:
-            msg = 'param,integer_value,boolean_value,= {} {} {}'
-            msg = msg.format(str(param),
-                             pdict[param]['boolean_value'],
-                             pdict[param]['integer_value'])
-            assert msg == 'ERROR: boolean_value is not integer_value'
-        # check that cpi_indexed param is not boolean or integer
-        nonfloat_value = (pdict[param]['integer_value'] or
-                          pdict[param]['boolean_value'])
-        if pdict[param]['cpi_inflated'] and nonfloat_value:
-            msg = 'param,integer_value,boolean_value= {} {} {}'
-            msg = msg.format(str(param),
-                             pdict[param]['boolean_value'],
-                             pdict[param]['integer_value'])
-            assert msg == 'ERROR: nonfloat_value param is inflation indexed'
-        # find param type based on value
-        val = pdict[param]['value']
-        while isinstance(val, list):
-            val = val[0]
-        valstr = str(val)
-        val_is_boolean = bool(valstr == 'True' or valstr == 'False')
-        val_is_integer = not bool('.' in valstr or abs(val) > maxint)
-        # check that val_is_integer is consistent with integer_value
-        if val_is_integer != pdict[param]['integer_value']:
-            msg = 'param,integer_value,valstr= {} {} {}'
-            msg = msg.format(str(param),
-                             pdict[param]['integer_value'],
-                             valstr)
-            assert msg == 'ERROR: integer_value param has non-integer value'
-        # check that val_is_boolean is consistent with boolean_value
-        if val_is_boolean != pdict[param]['boolean_value']:
-            msg = 'param,boolean_value,valstr= {} {} {}'
-            msg = msg.format(str(param),
-                             pdict[param]['boolean_value'],
-                             valstr)
-            assert msg == 'ERROR: boolean_value param has non-boolean value'
+TAXCALC_REVISION = """
+{
+    "consumption": {"BEN_mcaid_value": {"2013": 0.9}}
+}
+"""
+
+PARAMTOOLS_REVISION = """
+{
+    "consumption": {"BEN_mcaid_value": [{"year": "2013", "value": 0.9}]}
+}
+"""
+
+PARAMTOOLS_REVISION2 = """
+{
+    "consumption": {"BEN_mcaid_value": 0.9}
+}
+"""
 
 
-@pytest.mark.parametrize('json_filename',
-                         ['current_law_policy.json',
-                          'behavior.json',
-                          'consumption.json',
-                          'growdiff.json'])
-def test_cpi_inflatable_info(tests_path, json_filename):
+@pytest.mark.parametrize("good_revision", [
+    TAXCALC_REVISION,
+    PARAMTOOLS_REVISION,
+])
+def test_read_json_revision(good_revision):
     """
-    Check presence and consistency of cpi_inflatable info in
-    JSON parameter files.
+    Check _read_json_revision logic.
     """
-    path = os.path.join(tests_path, '..', json_filename)
-    with open(path, 'r') as pfile:
-        pdict = json.load(pfile)
-    for param in sorted(pdict.keys()):
-        # check for presence of cpi_inflatable field
-        if 'cpi_inflatable' not in pdict[param]:
-            msg = 'param= {}'.format(str(param))
-            assert msg == 'ERROR: missing cpi_inflatable field'
-        # ensure that cpi_inflatable is True when cpi_inflated is True
-        if pdict[param]['cpi_inflated'] and not pdict[param]['cpi_inflatable']:
-            msg = 'param= {}'.format(str(param))
-            assert msg == 'ERROR: cpi_inflatable=False when cpi_inflated=True'
-        # ensure that cpi_inflatable is False when integer_value is True
-        if pdict[param]['integer_value'] and pdict[param]['cpi_inflatable']:
-            msg = 'param= {}'.format(str(param))
-            assert msg == 'ERROR: cpi_inflatable=True when integer_value=True'
+    # pllint: disable=private-method
+    with pytest.raises(TypeError):
+        # error because first obj argument is neither None nor a string
+        Parameters._read_json_revision([], '')
+    with pytest.raises(ValueError):
+        # error because second topkey argument must be a string
+        Parameters._read_json_revision(good_revision, 999)
+    with pytest.raises(ValueError):
+        # error because second topkey argument is not in good_revision
+        Parameters._read_json_revision(good_revision, 'unknown_topkey')
+
+
+@pytest.mark.parametrize("params,is_paramtools", [
+    (TAXCALC_REVISION, False),
+    (PARAMTOOLS_REVISION, True),
+    (PARAMTOOLS_REVISION2, True),
+])
+def test_read_json_revision_foramts(params, is_paramtools):
+    """
+    Check _read_json_revision for ParamTools and Tax-Calculator
+    styled parameters.
+    """
+    result = Parameters._read_json_revision(params, "consumption")
+    assert is_paramtools_format(result) is is_paramtools
+    if is_paramtools:
+        assert result == json.loads(params)["consumption"]

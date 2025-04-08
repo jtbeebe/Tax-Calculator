@@ -1,13 +1,13 @@
-# HOW TO SPECIFY A TAX REFORM IN A POLICY REFORM FILE
+# HOW TO SPECIFY A TAX REFORM IN A JSON POLICY REFORM FILE
 
 A tax reform consists of a collection of reform provisions.  There is
 a way to specify in a text file the collection of reform provisions
 that make up a reform proposal.  When stored on your local computer,
-such reform files can be used to estimate reform effects either by
-uploading to the [TaxBrain webapp](http://www.ospc.org/taxbrain/file/)
-or by using the `--reform` option of the [Tax-Calculator command-line
-tool,
-tc](http://open-source-economics.github.io/Tax-Calculator/index.html#cli).
+such reform files can be used to estimate reform effects by using the
+`--reform` option of the Tax-Calculator command-line tool `tc` or by
+using them in a Python program that imports the Tax-Calculator
+`taxcalc` package as described in the [user
+guide](https://PSLmodels.github.io/Tax-Calculator/uguide.html).
 
 Here we provide links to several reform files that specify historical
 reform proposals, and then provide a more general explanation of the
@@ -17,14 +17,18 @@ structure and syntax of reform files.
 
 Note that the current-law (that is, TCJA) values of each tax policy
 parameter are shown in the [Policy Parameters section of the user
-documentation](http://open-source-economics.github.io/Tax-Calculator/index.html#pol).
+documentation](https://PSLmodels.github.io/Tax-Calculator/index.html#pol).
 
 - [Pre-TCJA Policy](2017_law.json)
+
+- [Larson Social Security 2100 Act](Larson2019.json)
+
+- [Sanders-DeFazio Social Security Expansion Act](SandersDeFazio.json)
 
 ## Tax Reforms Defined Relative to pre-TCJA Policy
 
 Read the answer to [Question 1 in this
-FAQ](https://github.com/open-source-economics/Tax-Calculator/issues/1830)
+FAQ](https://github.com/PSLmodels/Tax-Calculator/issues/1830)
 to see how to use the compound-reform techique to analyze the reforms
 in this section.
 
@@ -32,21 +36,13 @@ in this section.
 
 - [2016 Clinton Campaign Tax Plan](Clinton2016.json)
 
-- [2016 Ryan-Brady "Better Way" Tax Plan](RyanBrady.json)
-
 - [2017 Trump Administration Tax Plan](Trump2017.json)
 
 - [2017 Brown-Khanna GAIN Act](BrownKhanna.json)
 
-- [2017 Tax Cuts and Jobs Act, House version](TCJA_House.json)
+- [2017 Simplifying America's Tax System (Renacci)](Renacci.json)
 
-- [2017 Tax Cuts and Jobs Act, Passed House version](TCJA_House_Amended.json)
-
-- [2017 Tax Cuts and Jobs Act, Senate version](TCJA_Senate.json)
-
-- [2017 Tax Cuts and Jobs Act, Passed Senate version](TCJA_Senate_120117.json)
-
-- [2017 Tax Cuts and Jobs Act, Conference bill](TCJA_Reconciliation.json)
+- [2017 Tax Cuts and Jobs Act, as passed by Congress](TCJA.json)
 
 ## Structure and Syntax of Reform Files
 
@@ -61,24 +57,22 @@ several reform provisions.  The structure of this file is as follows:
 
 ```
 {
-  "policy": {
-     <parameter_name>: {<calyear>: <parameter-value>,
-                        ...,
-                        <calyear>: <parameter-value>},
-     <parameter_name>: {<calyear>: <parameter-value>},
-     ...,
-     <parameter_name>: {<calyear>: <parameter-value>,
-                        ...,
-                        <calyear>: <parameter-value>}
-  }
+    <parameter_name>: {<calyear>: <parameter-value>,
+                       ...,
+                       <calyear>: <parameter-value>},
+    <parameter_name>: {<calyear>: <parameter-value>},
+    ...,
+    <parameter_name>: {<calyear>: <parameter-value>,
+                       ...,
+                       <calyear>: <parameter-value>}
 }
 ```
 
 Notice each pair of reform provision is separated by commas.
 Each reform provision may have one or multiple year-value pairs.
 Also, the <parameter_name> and <calyear> must be enclosed in quotes (").
-The <parameter_value> is enclosed in single brackets when
-the <parameter_value> is a scalar and enclosed in double brackets when
+The <parameter_value> is NOT enclosed in brackets when
+the <parameter_value> is a scalar and is enclosed in single brackets when
 the <parameter_value> is a vector.  The most common vector of values
 is one that varies by filing status (MARS) with the vector containing
 five parameter values for single, married filing joint, married filing

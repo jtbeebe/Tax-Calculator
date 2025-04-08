@@ -2,18 +2,18 @@
 Test generates statistics for puf.csv variables.
 """
 # CODING-STYLE CHECKS:
-# pep8 --ignore=E402 test_puf_var_stats.py
+# pycodestyle test_puf_var_stats.py
 # pylint --disable=locally-disabled test_puf_var_stats.py
 
 import os
-import sys
 import json
 import copy
 import numpy as np
 import pandas as pd
 import pytest
-# pylint: disable=import-error
-from taxcalc import Policy, Records, Calculator, nonsmall_diffs
+from taxcalc.policy import Policy
+from taxcalc.records import Records
+from taxcalc.calculator import Calculator
 
 
 def create_base_table(test_path):
@@ -36,8 +36,8 @@ def create_base_table(test_path):
                  'c07180': 'Child care credit',
                  'c09600': 'Federal AMT liability'}
     # specify read variable names and descriptions
-    unused_var_set = set(['AGIR1', 'DSI', 'EFI', 'EIC', 'ELECT', 'FDED',
-                          'h_seq', 'ffpos', 'fips', 'agi_bin',
+    unused_var_set = set(['DSI', 'EIC',
+                          'h_seq', 'a_lineno', 'ffpos', 'fips', 'agi_bin',
                           'FLPDYR', 'FLPDMO', 'f2441', 'f3800', 'f6251',
                           'f8582', 'f8606', 'f8829', 'f8910', 'f8936', 'n20',
                           'n24', 'n25', 'n30', 'PREP', 'SCHB', 'SCHCF', 'SCHE',
@@ -46,19 +46,30 @@ def create_base_table(test_path):
                           'RECID', 'gender', 'wage_head', 'wage_spouse',
                           'earnsplit', 'agedp1', 'agedp2', 'agedp3',
                           's006', 's008', 's009', 'WSAMP', 'TXRT',
-                          'filer', 'matched_weight', 'e00200p', 'e00200s',
+                          'matched_weight', 'e00200p', 'e00200s',
                           'e00900p', 'e00900s', 'e02100p', 'e02100s',
                           'age_head', 'age_spouse',
-                          'blind_head', 'blind_spouse'])
-    read_vars = list(Records.USABLE_READ_VARS - unused_var_set)
+                          'nu18', 'n1820', 'n21',
+                          'ssi_ben', 'snap_ben', 'other_ben',
+                          'mcare_ben', 'mcaid_ben', 'vet_ben',
+                          'housing_ben', 'tanf_ben', 'wic_ben',
+                          'blind_head', 'blind_spouse',
+                          'PT_SSTB_income',
+                          'PT_binc_w2_wages',
+                          'PT_ubia_property'])
+    records_varinfo = Records(data=None)
+    read_vars = list(records_varinfo.USABLE_READ_VARS - unused_var_set)
     # get read variable information from JSON file
     rec_vars_path = os.path.join(test_path, '..', 'records_variables.json')
-    with open(rec_vars_path) as rvfile:
+    with open(rec_vars_path, 'r', encoding='utf-8') as rvfile:
         read_var_dict = json.load(rvfile)
     # create table_dict with sorted read vars followed by sorted calc vars
-    table_dict = dict()
+    table_dict = {}
     for var in sorted(read_vars):
-        table_dict[var] = read_var_dict['read'][var]['desc']
+        if "taxdata_puf" in read_var_dict['read'][var]['availability']:
+            table_dict[var] = read_var_dict['read'][var]['desc']
+        else:
+            pass
     sorted_calc_vars = sorted(calc_dict.keys())
     for var in sorted_calc_vars:
         table_dict[var] = calc_dict[var]
@@ -72,14 +83,22 @@ def calculate_corr_stats(calc, table):
     """
     Calculate correlation coefficient matrix.
     """
+    errmsg = ''
     for varname1 in table.index:
         var1 = calc.array(varname1)
-        var1_cc = list()
+        var1_cc = []
         for varname2 in table.index:
             var2 = calc.array(varname2)
-            cor = np.corrcoef(var1, var2)[0][1]
+            try:
+                cor = np.corrcoef(var1, var2)[0][1]
+            except FloatingPointError:
+                msg = f'corr-coef error for {varname1} and {varname2}\n'
+                errmsg += msg
+                cor = 9.99  # because could not compute it
             var1_cc.append(cor)
         table[varname1] = var1_cc
+    if errmsg:
+        raise ValueError('\n' + errmsg)
 
 
 def calculate_mean_stats(calc, table, year):
@@ -87,34 +106,39 @@ def calculate_mean_stats(calc, table, year):
     Calculate weighted means for year.
     """
     total_weight = calc.total_weight()
-    means = list()
+    means = []
     for varname in table.index:
         wmean = calc.weighted_total(varname) / total_weight
         means.append(wmean)
     table[str(year)] = means
 
 
-def differences(new_filename, old_filename, stat_kind, small):
+def differences(new_filename, old_filename, stat_kind):
     """
-    Return message string if there are differences at least as large as small;
-    otherwise (i.e., if there are only small differences) return empty string.
+    Return message string if differences detected by np.allclose();
+    otherwise return empty string.
     """
-    with open(new_filename, 'r') as vfile:
-        new_text = vfile.read()
-    with open(old_filename, 'r') as vfile:
-        old_text = vfile.read()
-    if nonsmall_diffs(new_text.splitlines(True),
-                      old_text.splitlines(True), small):
+    new_df = pd.read_csv(new_filename)
+    old_df = pd.read_csv(old_filename)
+    diffs = False
+    if list(new_df.columns.values) == list(old_df.columns.values):
+        for col in new_df.columns[1:]:
+            if col == 'description':
+                continue  # skip description column
+            if not np.allclose(new_df[col], old_df[col]):
+                diffs = True
+    else:
+        diffs = True
+    if diffs:
         new_name = os.path.basename(new_filename)
         old_name = os.path.basename(old_filename)
-        msg = '{} RESULTS DIFFER:\n'.format(stat_kind)
+        msg = f'{stat_kind} RESULTS DIFFER:\n'
         msg += '-------------------------------------------------'
         msg += '-------------\n'
-        msg += '--- NEW RESULTS IN {} FILE ---\n'.format(new_name)
-        msg += '--- if new OK, copy {} to  ---\n'.format(new_name)
-        msg += '---                 {}         ---\n'.format(old_name)
-        msg += '---            and rerun test.                   '
-        msg += '          ---\n'
+        msg += f'--- NEW RESULTS IN {new_name} FILE ---\n'
+        msg += f'--- if new OK, copy {new_name} to\n'
+        msg += f'---                 {old_name}   \n'
+        msg += '---            and rerun test.      '
         msg += '-------------------------------------------------'
         msg += '-------------\n'
     else:
@@ -134,9 +158,9 @@ def test_puf_var_stats(tests_path, puf_fullsample):
     """
     # create a baseline Policy object containing 2017_law.json parameters
     pre_tcja_jrf = os.path.join(tests_path, '..', 'reforms', '2017_law.json')
-    pre_tcja = Calculator.read_json_param_objects(pre_tcja_jrf, None)
+    pre_tcja = Policy.read_json_reform(pre_tcja_jrf)
     baseline_policy = Policy()
-    baseline_policy.implement_reform(pre_tcja['policy'])
+    baseline_policy.implement_reform(pre_tcja)
     # create a Calculator object using baseline_policy and full puf.csv sample
     rec = Records(data=puf_fullsample)
     calc = Calculator(policy=baseline_policy, records=rec, verbose=False)
@@ -146,14 +170,14 @@ def test_puf_var_stats(tests_path, puf_fullsample):
     del table_corr['description']
     # add statistics to tables
     year_headers = ['description']
-    for year in range(Policy.JSON_START_YEAR, Policy.LAST_BUDGET_YEAR + 1):
-        assert year == calc.policy_current_year()
+    for year in range(Policy.JSON_START_YEAR, 2034 + 1):
+        assert year == calc.current_year
         year_headers.append(str(year))
         calc.calc_all()
         calculate_mean_stats(calc, table_mean, year)
         if year == 2016:
             calculate_corr_stats(calc, table_corr)
-        if year < Policy.LAST_BUDGET_YEAR:
+        if year < 2034:
             calc.increment_year()
     # write tables to new CSV files
     mean_path = os.path.join(tests_path, MEAN_FILENAME + '-new')
@@ -163,18 +187,8 @@ def test_puf_var_stats(tests_path, puf_fullsample):
     table_corr.sort_index(inplace=True)
     table_corr.to_csv(corr_path, float_format='%8.2f',
                       columns=table_corr.index)
-    # compare new and old CSV files for nonsmall differences
-    if sys.version_info.major == 2:
-        # tighter tests for Python 2.7
-        mean_msg = differences(mean_path, mean_path[:-4],
-                               'MEAN', small=0.0)
-        corr_msg = differences(corr_path, corr_path[:-4],
-                               'CORR', small=0.0)
-    else:
-        # looser tests for Python 3.6
-        mean_msg = differences(mean_path, mean_path[:-4],
-                               'MEAN', small=1.0)
-        corr_msg = differences(corr_path, corr_path[:-4],
-                               'CORR', small=0.01)
+    # compare new and old CSV files for differences
+    mean_msg = differences(mean_path, mean_path[:-4], 'MEAN')
+    corr_msg = differences(corr_path, corr_path[:-4], 'CORR')
     if mean_msg or corr_msg:
         raise ValueError(mean_msg + corr_msg)

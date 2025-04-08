@@ -46,13 +46,13 @@
     },
     "age_head": {
       "type": "int",
-      "desc": "Age in years of taxpayer (i.e. primary filer)",
+      "desc": "Age in years of taxpayer (i.e. primary adult)",
       "form": {"2013-2016": "imputed from CPS data"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "age_spouse": {
       "type": "int",
-      "desc": "Age in years of spouse (i.e. secondary filer if present)",
+      "desc": "Age in years of spouse (i.e. secondary adult if present)",
       "form": {"2013-2016": "imputed from CPS data"},
       "availability": "taxdata_puf, taxdata_cps"
     },
@@ -66,13 +66,13 @@
       "type": "int",
       "desc": "1 if taxpayer is blind; otherwise 0",
       "form": {"2013-2016": "1040 line 39a"},
-      "availability": "taxdata_cps"
+      "availability": "taxdata_puf, taxdata_cps"
     },
     "blind_spouse": {
       "type": "int",
       "desc": "1 if spouse is blind; otherwise 0",
       "form": {"2013-2016": "1040 line 39a"},
-      "availability": "taxdata_cps"
+      "availability": "taxdata_puf, taxdata_cps"
     },
     "cmbtp": {
       "type": "float",
@@ -82,20 +82,32 @@
     },
     "e00200": {
       "type": "float",
-      "desc": "Wages, salaries, and tips for filing unit",
+      "desc": "Wages, salaries, and tips for filing unit net of pension contributions",
       "form": {"2013-2016": "1040 line 7"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e00200p": {
       "type": "float",
-      "desc": "Wages, salaries, and tips for taxpayer",
+      "desc": "Wages, salaries, and tips for taxpayer net of pension contributions (pencon_p)",
       "form": {"2013-2016": "1040 line 7 component"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e00200s": {
       "type": "float",
-      "desc": "Wages, salaries, and tips for spouse",
+      "desc": "Wages, salaries, and tips for spouse net of pension contributions (pencon_s)",
       "form": {"2013-2016": "1040 line 7 component"},
+      "availability": "taxdata_puf, taxdata_cps"
+    },
+    "pencon_p": {
+      "type": "float",
+      "desc": "Contributions to defined-contribution pension plans for taxpayer",
+      "form": {"2013-2016": "Imputed using IRS tabulations of Form W-2 sample"},
+      "availability": "taxdata_puf, taxdata_cps"
+    },
+    "pencon_s": {
+      "type": "float",
+      "desc": "Contributions to defined-contribution pension plans for spouse",
+      "form": {"2013-2016": "Imputed using IRS tabulations of Form W-2 sample"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e00300": {
@@ -172,7 +184,7 @@
     },
     "e01500": {
       "type": "float",
-      "desc": "Pensions and annuities",
+      "desc": "Total pensions and annuities",
       "form": {"2013-2016": "1040 line 16a"},
       "availability": "taxdata_puf, taxdata_cps"
     },
@@ -184,7 +196,7 @@
     },
     "e02000": {
       "type": "float",
-      "desc": "Sch E total rental, royalty, partnership, S-corporation, etc, income/loss (includes e26270 and e27200 and p25470)",
+      "desc": "Sch E total rental, royalty, partnership, S-corporation, etc, income/loss (includes e26270 and e27200)",
       "form": {"2013-2016": "1040 line 17"},
       "availability": "taxdata_puf"
     },
@@ -208,13 +220,13 @@
     },
     "e02300": {
       "type": "float",
-      "desc": "Unemployment compensation benefits",
+      "desc": "Unemployment insurance benefits",
       "form": {"2013-2016": "1040 line 19"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e02400": {
       "type": "float",
-      "desc": "Total social security benefits",
+      "desc": "Total social security (OASDI) benefits",
       "form": {"2013-2016": "1040 line 20a"},
       "availability": "taxdata_puf, taxdata_cps"
     },
@@ -343,49 +355,49 @@
     },
     "e17500": {
       "type": "float",
-      "desc": "Sch A: Medical and dental expenses",
+      "desc": "Itemizable medical and dental expenses.  WARNING: this variable is zero below the floor in PUF data.",
       "form": {"2013-2016": "1040 Sch A line 1"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e18400": {
       "type": "float",
-      "desc": "Sch A: State and local income/sales taxes",
+      "desc": "Itemizable state and local income/sales taxes",
       "form": {"2013-2016": "1040 Sch A line 5"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e18500": {
       "type": "float",
-      "desc": "Sch A: Real-estate taxes paid",
+      "desc": "Itemizable real-estate taxes paid",
       "form": {"2013-2016": "1040 Sch A line 6"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e19200": {
       "type": "float",
-      "desc": "Sch A: Interest paid",
+      "desc": "Itemizable interest paid",
       "form": {"2013-2016": "1040 Sch A line 15"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e19800": {
       "type": "float",
-      "desc": "Sch A: Gifts to charity: cash/check contributions",
+      "desc": "Itemizable charitable giving: cash/check contributions.  WARNING: this variable is already capped in PUF data.",
       "form": {"2013-2016": "1040 Sch A line 16"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e20100": {
       "type": "float",
-      "desc": "Sch A: Gifts to charity: other than cash/check contributions",
+      "desc": "Itemizable charitable giving: other than cash/check contributions.  WARNING: this variable is already capped in PUF data.",
       "form": {"2013-2016": "1040 Sch A line 17"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "e20400": {
       "type": "float",
-      "desc": "Sch A: Miscellaneous deductions subject to 2% AGI limitation",
+      "desc": "Itemizable miscellaneous deductions.  WARNING: this variable is zero below the floor in PUF data.",
       "form": {"2013-2016": "1040 Sch A line 24"},
       "availability": "taxdata_puf, taxdata_cps"
     },
     "g20500": {
       "type": "float",
-      "desc": "Sch A: Gross (before 10% AGI disregard) casualty or theft loss",
+      "desc": "Itemizable gross (before 10% AGI disregard) casualty or theft loss",
       "form": {"2013-2016": "1040 Sch A line 20 before disregard subtracted"},
       "availability": "taxdata_puf"
     },
@@ -437,9 +449,9 @@
       "form": {"2013-2016": "8863 Part I line 10 and 8863 Part III line 31"},
       "availability": "taxdata_puf"
     },
-    "elderly_dependent": {
+    "elderly_dependents": {
       "type": "int",
-      "desc": "1 if filing unit has an elderly dependent; otherwise 0",
+      "desc": "number of dependents age 65+ in filing unit excluding taxpayer and spouse",
       "form": {"2013-2016": "imputed from CPS data; not used in tax law"},
       "availability": "taxdata_puf, taxdata_cps"
     },
@@ -455,15 +467,15 @@
       "form": {"2013-2016": "6251"},
       "availability": "taxdata_puf"
     },
+    "a_lineno": {
+      "type": "int",
+      "desc": "CPS line number for the person record of the head of the tax filing unit (not used in tax-calculation logic)",
+      "form": {"2013-2016": "sample construction info"},
+      "availability": "taxdata_puf, taxdata_cps"
+    },
     "ffpos": {
       "type": "int",
       "desc": "CPS family identifier within household (not used in tax-calculation logic)",
-      "form": {"2013-2016": "sample construction info"},
-      "availability": "taxdata_cps"
-    },
-    "filer": {
-      "type": "int",
-      "desc": "1 if unit files an income tax return; 0 if not (not used in tax-calculation logic)",
       "form": {"2013-2016": "sample construction info"},
       "availability": "taxdata_puf, taxdata_cps"
     },
@@ -471,13 +483,19 @@
       "type": "int",
       "desc": "FIPS state code (not used in tax-calculation logic)",
       "form": {"2013-2016": "sample construction info"},
-      "availability": "taxdata_cps"
+      "availability": "taxdata_puf, taxdata_puf, taxdata_cps"
     },
     "h_seq": {
       "type": "int",
       "desc": "CPS household sequence number (not used in tax-calculation logic)",
       "form": {"2013-2016": "sample construction info"},
-      "availability": "taxdata_cps"
+      "availability": "taxdata_puf, taxdata_cps"
+    },
+    "data_source": {
+      "type": "int",
+      "desc": "1 if unit is created primarily from IRS-SOI PUF data; 0 if created primarily from CPS data (not used in tax-calculation logic)",
+      "form": {"2013-2016": "sample construction info"},
+      "availability": "taxdata_puf"
     },
     "k1bx14p": {
       "type": "float",
@@ -491,15 +509,27 @@
       "form": {"2013-2016": "1065 (Schedule K-1) box 14"},
       "availability": "taxdata_puf"
     },
+    "mcaid_ben": {
+      "type": "float",
+      "desc": "Imputed Medicaid benefits expressed as the actuarial value of Medicaid health insurance",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "mcare_ben": {
+      "type": "float",
+      "desc": "Imputed Medicare benefits expressed as the actuarial value of Medicare health insurance",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
     "n24": {
       "type": "int",
-      "desc": "Number of children eligible for Child Tax Credit",
+      "desc": "Number of children who are Child-Tax-Credit eligible, one condition for which is being under age 17",
       "form": {"2013-2016": "imputed from CPS data"},
       "availability": "taxdata_puf, taxdata_cps"
     },
-    "nu05": {
+    "nu06": {
       "type": "int",
-      "desc": "Number of dependents under 5 years old",
+      "desc": "Number of dependents under 6 years old",
       "form": {"2013-2016": "imputed from CPS data"},
       "availability": "taxdata_puf, taxdata_cps"
     },
@@ -515,7 +545,7 @@
       "form": {"2013-2016": "imputed from CPS data"},
       "availability": "taxdata_puf, taxdata_cps"
     },
-    "n1821": {
+    "n1820": {
       "type": "int",
       "desc": "Number of people age 18-20 years old in the filing unit",
       "form": {"2013-2016": "imputed from CPS data"},
@@ -526,6 +556,12 @@
       "desc": "Number of people 21 years old or older in the filing unit",
       "form": {"2013-2016": "imputed from CPS data"},
       "availability": "taxdata_puf, taxdata_cps"
+    },
+    "other_ben": {
+      "type": "float",
+      "desc": "Non-imputed benefits",
+      "form": {"2014-20??": "determined using government benefit program data"},
+      "availability": "taxdata_cps"
     },
     "p08000": {
       "type": "float",
@@ -546,13 +582,7 @@
       "form": {"2013-2016": "1040 Sch D line 15"},
       "availability": "taxdata_puf"
     },
-    "p25470": {
-      "type": "float",
-      "desc": "Sch E: Royalty depletion and/or rental depreciation (included in e02000)",
-      "form": {"2013-2016": "1040 Sch E line 18"},
-      "availability": "taxdata_puf"
-    },
-    "p87521": {
+    "e87521": {
       "type": "float",
       "desc": "Total tentative AmOppCredit amount for all students",
       "form": {"2013-2016": "8863 Part I line 1 and 8863 Part III line 30"},
@@ -563,6 +593,60 @@
       "desc": "Filing unit sampling weight; appears as WEIGHT variable in tc CLI minimal output",
       "form": {"2013-2016": "not used in filing unit tax calculations"},
       "availability": "taxdata_puf, taxdata_cps"
+    },
+    "snap_ben": {
+      "type": "float",
+      "desc": "Imputed SNAP benefits",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "housing_ben": {
+      "type": "float",
+      "desc": "Imputed housing benefits",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "ssi_ben": {
+      "type": "float",
+      "desc": "Imputed SSI benefits",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "tanf_ben": {
+      "type": "float",
+      "desc": "Imputed TANF benefits",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "vet_ben": {
+      "type": "float",
+      "desc": "Imputed Veteran's benefits",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "wic_ben": {
+      "type": "float",
+      "desc": "Imputed WIC benefits",
+      "form": {"2014-20??": "imputed using the C-TAM model"},
+      "availability": "taxdata_cps"
+    },
+    "PT_SSTB_income": {
+      "type": "int",
+      "desc": "Value of one implies business income is from a specified service trade or business (SSTB); value of zero implies business income is from a qualified trade or business",
+      "form": {"2018-20??": "specified in custom data"},
+      "availability": ""
+    },
+    "PT_binc_w2_wages": {
+      "type": "float",
+      "desc": "Filing unit's share of total W-2 wages paid by the pass-through business",
+      "form": {"2018-20??": "specified in custom data"},
+      "availability": ""
+    },
+    "PT_ubia_property": {
+      "type": "float",
+      "desc": "Filing unit's share of total business property owned by the pass-through business",
+      "form": {"2018-20??": "specified in custom data"},
+      "availability": ""
     }
   },
   "calc": {
@@ -579,17 +663,27 @@
     },
     "earned": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "earned_p": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "earned_s": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "was_plus_sey_p": {
+      "type": "float",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "was_plus_sey_s": {
+      "type": "float",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "eitc": {
@@ -598,21 +692,36 @@
       "form": {"2013-2013": "1040 line 64a",
                "2014-2016": "1040 line 66a"}
     },
+    "rptc": {
+      "type": "float",
+      "desc": "Refundable Payroll Tax Credit for filing unit",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "rptc_p": {
+      "type": "float",
+      "desc": "Refundable Payroll Tax Credit for taxpayer",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "rptc_s": {
+      "type": "float",
+      "desc": "Refundable Payroll Tax Credit for spouse",
+      "form": {"2013-20??": "calculated variable"}
+    },
     "exact": {
       "type": "int",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "expanded_income": {
       "type": "float",
-      "desc": "Broad income measure",
+      "desc": "Broad income measure that includes benefit_value_total",
       "form": {"2013-20??": "calculated variable"}
     },
     "iitax": {
       "type": "float",
       "desc": "Total federal individual income tax liability; appears as INCTAX variable in tc CLI minimal output",
-      "form": {"2013-2013": "1040 line 61 minus line 56 minus line 60a",
-               "2014-2016": "1040 line 63 minus line 57 minus line 62a"}
+      "form": {"2013-2013": "1040 line 61 minus lines 56, 60a, 64a, 65, and 66",
+               "2014-2016": "1040 line 63 minus lines 57, 62a, 66a, 67, and 68"}
     },
     "num": {
       "type": "int",
@@ -627,9 +736,8 @@
     },
     "payrolltax": {
       "type": "float",
-      "desc": "Total (employee + employer) payroll tax liability; appears as PAYTAX variable in tc CLI minimal output (payrolltax = ptax_was + setax + ptax_amc)",
-      "form": {"2013-2013": "OASDI+HI FICA plus 1040 lines 56 and 60a",
-               "2014-2016": "OASDI+HI FICA plus 1040 lines 57 and 62a"}
+      "desc": "Total (employee + employer) payroll tax liability; appears as PAYTAX variable in tc CLI minimal output (payrolltax = ptax_was)",
+      "form": {"2013-20??": "OASDI+HI FICA"}
     },
     "refund": {
       "type": "float",
@@ -643,17 +751,18 @@
     },
     "sey": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "standard": {
       "type": "float",
       "desc": "Standard deduction (zero for itemizers)",
-      "form": {"2013-2016": "1040 line 40"}
+      "form": {"2013-2017": "1040 line 40",
+               "2018-20??": "1040 line 8"}
     },
     "surtax": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "taxbc": {
@@ -664,56 +773,61 @@
     "c00100": {
       "type": "float",
       "desc": "Adjusted Gross Income (AGI)",
-      "form": {"2013-2016": "1040 line 37"}
+      "form": {"2013-2017": "1040 line 37",
+               "2018-20??": "1040 line 7"}
     },
     "c01000": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c02500": {
       "type": "float",
-      "desc": "Social security benefits included in AGI",
+      "desc": "Social security (OASDI) benefits included in AGI",
       "form": {"2013-2016": "1040 line 20b"}
     },
     "c02900": {
       "type": "float",
-      "desc": "Total of all income adjustments to get AGI",
+      "desc": "Total of all 'above the line' income adjustments to get AGI",
       "form": {"2013-2016": "1040 line 36"}
-    },
-    "c02900_in_ei": {
-      "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
-      "form": {"2013-20??": "calculated variable"}
     },
     "c03260": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c04470": {
       "type": "float",
       "desc": "Itemized deductions after phase-out (zero for non-itemizers)",
-      "form": {"2013-2016": "1040 line 40"}
+      "form": {"2013-2017": "1040 line 40",
+               "2018-20??": "1040 line 8"}
     },
     "c04600": {
       "type": "float",
       "desc": "Personal exemptions after phase-out",
-      "form": {"2013-2016": "1040 line 42"}
+      "form": {"2013-2017": "1040 line 42",
+               "2018-20??": ""}
+    },
+    "qbided": {
+      "type": "float",
+      "desc": "Qualified Business Income (QBI) deduction",
+      "form": {"2013-2017": "",
+               "2018-20??": "1040 line 9"}
     },
     "c04800": {
       "type": "float",
       "desc": "Regular taxable income",
-      "form": {"2013-2016": "1040 line 43"}
+      "form": {"2013-2017": "1040 line 43",
+               "2018-20??": "1040 line 10"}
     },
     "c05200": {
       "type": "float",
-      "desc": "Tax amount from Sch X,Y,X tables",
+      "desc": "Tax amount from Sch X,Y,Z tables",
       "form": {"2013-20??": "calculated variable"}
     },
     "c05700": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c05800": {
@@ -728,9 +842,21 @@
       "form": {"2013-2013": "1040 line 46 minus 1040 line 55",
                "2014-2016": "1040 line 47 minus 1040 line 56"}
     },
+    "c32800": {
+      "type": "float",
+      "desc": "Child and dependent care expenses capped by policy (not by earnings)",
+      "form": {"2013-2013": "1040 line 48",
+               "2014-2016": "1040 line 49"}
+    },
     "c07180": {
       "type": "float",
-      "desc": "Credit for child and dependent care expenses from Form 2441",
+      "desc": "Nonrefundable credit for child and dependent care expenses from Form 2441",
+      "form": {"2013-2013": "1040 line 48",
+               "2014-2016": "1040 line 49"}
+    },
+    "CDCC_refund": {
+      "type": "float",
+      "desc": "Refundable credit for child and dependent care expenses from Form 2441",
       "form": {"2013-2013": "1040 line 48",
                "2014-2016": "1040 line 49"}
     },
@@ -754,32 +880,32 @@
     },
     "c07240": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c07260": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c07300": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c07400": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c07600": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c08000": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c09200": {
@@ -807,7 +933,7 @@
     },
     "c17000": {
       "type": "float",
-      "desc": "Sch A: Medical expenses deducted",
+      "desc": "Sch A: Medical expenses deducted (component of pre-limitation c21060 total)",
       "form": {"2013-20??": "calculated variable"}
     },
     "e17500_capped": {
@@ -817,7 +943,7 @@
     },
     "c18300": {
       "type": "float",
-      "desc": "Sch A: State and local taxes deducted",
+      "desc": "Sch A: State and local taxes plus real estate taxes deducted (component of pre-limitation c21060 total)",
       "form": {"2013-20??": "calculated variable"}
     },
     "e18400_capped": {
@@ -832,7 +958,7 @@
     },
     "c19200": {
       "type": "float",
-      "desc": "Sch A: Interest deducted",
+      "desc": "Sch A: Interest deducted (component of pre-limitation c21060 total)",
       "form": {"2013-20??": "calculated variable"}
     },
     "e19200_capped": {
@@ -842,7 +968,7 @@
     },
     "c19700": {
       "type": "float",
-      "desc": "Sch A: Charity contributions deducted",
+      "desc": "Sch A: Charity contributions deducted (component of pre-limitation c21060 total)",
       "form": {"2013-20??": "calculated variable"}
     },
     "e19800_capped": {
@@ -857,7 +983,7 @@
     },
     "c20500": {
       "type": "float",
-      "desc": "Sch A: Net casualty or theft loss deducted",
+      "desc": "Sch A: Net casualty or theft loss deducted (component of pre-limitation c21060 total)",
       "form": {"2013-20??": "calculated variable"}
     },
     "g20500_capped": {
@@ -867,7 +993,7 @@
     },
     "c20800": {
       "type": "float",
-      "desc": "Sch A: Net limited miscellaneous deductions deducted",
+      "desc": "Sch A: Net limited miscellaneous deductions deducted (component of pre-limitation c21060 total)",
       "form": {"2013-20??": "calculated variable"}
     },
     "e20400_capped": {
@@ -887,12 +1013,12 @@
     },
     "c23650": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c59660": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "c62100": {
@@ -907,17 +1033,32 @@
     },
     "care_deduction": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "ctc_new": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
-    "dep_credit": {
+    "odc": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "Other Dependent Credit",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "ctc_total": {
+      "type": "float",
+      "desc": "Total CTC amount (c07220 + c11070 + odc + ctc_new)",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "ctc_nonrefundable": {
+      "type": "float",
+      "desc": "Portion of total CTC amount that is nonrefundable",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "ctc_refundable": {
+      "type": "float",
+      "desc": "Portion of total CTC amount that is refundable",
       "form": {"2013-20??": "calculated variable"}
     },
     "personal_refundable_credit": {
@@ -925,44 +1066,59 @@
       "desc": "Personal refundable credit",
       "form": {"2013-20??": "calculated variable"}
     },
+    "recovery_rebate_credit": {
+      "type": "float",
+      "desc": "Recovery Rebate Credit, from American Rescue Plan Act of 2021",
+      "form": {"2013-20??": "calculated variable"}
+    },
     "personal_nonrefundable_credit": {
       "type": "float",
       "desc": "Personal nonrefundable credit",
       "form": {"2013-20??": "calculated variable"}
     },
+    "charity_credit": {
+      "type": "float",
+      "desc": "Credit for charitable giving",
+      "form": {"2013-20??": "calculated variable"}
+    },
     "dwks10": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "dwks13": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "dwks14": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "dwks19": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "dwks43": {
+      "type": "float",
+      "desc": "separate tax on long-term capital gains and qualified dividends",
       "form": {"2013-20??": "calculated variable"}
     },
     "fstax": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "invinc_agi_ec": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "invinc_ec_base": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "lumpsum_tax": {
@@ -975,20 +1131,20 @@
       "desc": "Personal exemption before phase-out",
       "form": {"2013-20??": "calculated variable"}
     },
-    "prectc": {
+    "codtc_limited": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "ptax_amc": {
       "type": "float",
-      "desc": "Additional Medicare Tax from Form 8959 (included in payrolltax)",
+      "desc": "Additional Medicare Tax from Form 8959 (included in othertaxes and iitax)",
       "form": {"2013-2013": "1040 line 60a",
                "2014-2016": "1040 line 62a"}
     },
     "ptax_oasdi": {
       "type": "float",
-      "desc": "Employee + employer OASDI FICA tax plus self-employment tax (excludes HI FICA so positive ptax_oasdi is less than ptax_was plus setax)",
+      "desc": "Employee + employer OASDI FICA tax plus self-employment tax",
       "form": {"2013-2013": "OASDI FICA plus 1040 line 56",
                "2014-2016": "OASDI FICA plus 1040 line 57"}
     },
@@ -1000,18 +1156,18 @@
     },
     "setax": {
       "type": "float",
-      "desc": "Self-employment tax",
+      "desc": "Self-employment tax (included in othertaxes and iitax)",
       "form": {"2013-2013": "1040 line 56",
                "2014-2016": "1040 line 57"}
     },
     "ymod": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "ymod1": {
       "type": "float",
-      "desc": "search taxcalc/functions.py for how calculated and used",
+      "desc": "search taxcalc/calcfunctions.py for how calculated and used",
       "form": {"2013-20??": "calculated variable"}
     },
     "ubi": {
@@ -1042,6 +1198,16 @@
     "aftertax_income": {
       "type": "float",
       "desc": "After tax income is equal to expanded_income minus combined",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "benefit_cost_total": {
+      "type": "float",
+      "desc": "Government cost of all benefits received by tax unit",
+      "form": {"2013-20??": "calculated variable"}
+    },
+    "benefit_value_total": {
+      "type": "float",
+      "desc": "Consumption value of all benefits received by tax unit, which is included in expanded_income",
       "form": {"2013-20??": "calculated variable"}
     }
   }

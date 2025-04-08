@@ -8,23 +8,25 @@ and from the Census CPS file for the corresponding year.  If you have
 acquired from IRS the most recent SOI PUF file and want to execute
 this program, contact the Tax-Calculator development team to discuss
 your options.
-
-Read tax-calculator/TESTING.md for details.
 """
 # CODING-STYLE CHECKS:
-# pep8 --ignore=E402 test_pufcsv.py
+# pycodestyle test_pufcsv.py
 # pylint --disable=locally-disabled test_pufcsv.py
 
 import os
-import sys
 import json
 import pytest
 import numpy as np
 import pandas as pd
-# pylint: disable=import-error
-from taxcalc import Policy, Records, Calculator, nonsmall_diffs
+from taxcalc.policy import Policy
+from taxcalc.records import Records
+from taxcalc.calculator import Calculator
 
 
+START_YEAR = 2017
+
+
+@pytest.mark.pufcsv_agg
 @pytest.mark.requires_pufcsv
 def test_agg(tests_path, puf_fullsample):
     """
@@ -33,75 +35,64 @@ def test_agg(tests_path, puf_fullsample):
     """
     # pylint: disable=too-many-locals,too-many-statements
     nyrs = 10
-    # create a baseline Policy object containing 2017_law.json parameters
-    pre_tcja_jrf = os.path.join(tests_path, '..', 'reforms', '2017_law.json')
-    pre_tcja = Calculator.read_json_param_objects(pre_tcja_jrf, None)
+    # create a baseline Policy object with current-law policy parameters
     baseline_policy = Policy()
-    baseline_policy.implement_reform(pre_tcja['policy'])
     # create a Records object (rec) containing all puf.csv input records
-    rec = Records(data=puf_fullsample)
+    recs = Records(data=puf_fullsample)
     # create a Calculator object using baseline policy and puf records
-    calc = Calculator(policy=baseline_policy, records=rec)
+    calc = Calculator(policy=baseline_policy, records=recs)
+    calc.advance_to_year(START_YEAR)
     calc_start_year = calc.current_year
     # create aggregate diagnostic table (adt) as a Pandas DataFrame object
-    adt = calc.diagnostic_table(nyrs)
+    adt = calc.diagnostic_table(nyrs).round(1)  # column labels are int
     taxes_fullsample = adt.loc["Combined Liability ($b)"]
-    # convert adt results to a string with a trailing EOL character
-    adtstr = adt.to_string() + '\n'
-    # create actual and expected lists of diagnostic table lines
-    actual = adtstr.splitlines(True)
-    aggres_path = os.path.join(tests_path, 'pufcsv_agg_expect.txt')
-    with open(aggres_path, 'r') as expected_file:
-        txt = expected_file.read()
-    expected_results = txt.rstrip('\n\t ') + '\n'  # cleanup end of file txt
-    expect = expected_results.splitlines(True)
-    # ensure actual and expect lines have differences no more than small value
-    if sys.version_info.major == 2:
-        small = 0.0  # tighter test for Python 2.7
-    else:
-        small = 0.1  # looser test for Python 3.6
-    diffs = nonsmall_diffs(actual, expect, small)
+    # compare actual DataFrame, adt, with the expected DataFrame, edt
+    aggres_path = os.path.join(tests_path, 'pufcsv_agg_expect.csv')
+    edt = pd.read_csv(aggres_path, index_col=False)  # column labels are str
+    edt.drop('Unnamed: 0', axis='columns', inplace=True)
+    assert len(adt.columns.values) == len(edt.columns.values)
+    diffs = False
+    for icol in adt.columns.values:
+        if not np.allclose(adt[icol].values, edt[str(icol)].values):
+            diffs = True
     if diffs:
-        new_filename = '{}{}'.format(aggres_path[:-10], 'actual.txt')
-        with open(new_filename, 'w') as new_file:
-            new_file.write(adtstr)
+        new_filename = f'{aggres_path[:-10]}actual.csv'
+        adt.to_csv(new_filename, float_format='%.1f')
         msg = 'PUFCSV AGG RESULTS DIFFER FOR FULL-SAMPLE\n'
         msg += '-------------------------------------------------\n'
-        msg += '--- NEW RESULTS IN pufcsv_agg_actual.txt FILE ---\n'
-        msg += '--- if new OK, copy pufcsv_agg_actual.txt to  ---\n'
-        msg += '---                 pufcsv_agg_expect.txt     ---\n'
+        msg += '--- NEW RESULTS IN pufcsv_agg_actual.csv FILE ---\n'
+        msg += '--- if new OK, copy pufcsv_agg_actual.csv to  ---\n'
+        msg += '---                 pufcsv_agg_expect.csv     ---\n'
         msg += '---            and rerun test.                ---\n'
+        msg += '---       (both are in taxcalc/tests)         ---\n'
         msg += '-------------------------------------------------\n'
         raise ValueError(msg)
     # create aggregate diagnostic table using unweighted sub-sample of records
     fullsample = puf_fullsample
-    rn_seed = 180  # to ensure sub-sample is always the same
+    rn_seed = 2222  # to ensure sub-sample is always the same
     subfrac = 0.05  # sub-sample fraction
     subsample = fullsample.sample(frac=subfrac, random_state=rn_seed)
-    rec_subsample = Records(data=subsample)
-    calc_subsample = Calculator(policy=baseline_policy, records=rec_subsample)
+    recs_subsample = Records(data=subsample)
+    calc_subsample = Calculator(policy=baseline_policy, records=recs_subsample)
+    calc_subsample.advance_to_year(START_YEAR)
     adt_subsample = calc_subsample.diagnostic_table(nyrs)
     # compare combined tax liability from full and sub samples for each year
     taxes_subsample = adt_subsample.loc["Combined Liability ($b)"]
-    reltol = 0.01  # maximum allowed relative difference in tax liability
-    if not np.allclose(taxes_subsample, taxes_fullsample,
-                       atol=0.0, rtol=reltol):
-        msg = 'PUFCSV AGG RESULTS DIFFER IN SUB-SAMPLE AND FULL-SAMPLE\n'
-        msg += 'WHEN subfrac={:.3f}, rtol={:.4f}, seed={}\n'.format(subfrac,
-                                                                    reltol,
-                                                                    rn_seed)
-        it_sub = np.nditer(taxes_subsample, flags=['f_index'])
-        it_all = np.nditer(taxes_fullsample, flags=['f_index'])
-        while not it_sub.finished:
-            cyr = it_sub.index + calc_start_year
-            tax_sub = float(it_sub[0])
-            tax_all = float(it_all[0])
-            reldiff = abs(tax_sub - tax_all) / abs(tax_all)
-            if reldiff > reltol:
-                msgstr = ' year,sub,full,reldiff= {}\t{:.2f}\t{:.2f}\t{:.4f}\n'
-                msg += msgstr.format(cyr, tax_sub, tax_all, reldiff)
-            it_sub.iternext()
-            it_all.iternext()
+    msg = ''
+    for cyr in range(calc_start_year, calc_start_year + nyrs):
+        reltol = 0.031  # maximum allowed relative difference in tax liability
+        if not np.allclose(taxes_subsample[cyr], taxes_fullsample[cyr],
+                           atol=0.0, rtol=reltol):
+            reldiff = (taxes_subsample[cyr] / taxes_fullsample[cyr]) - 1.
+            line1 = '\nPUFCSV AGG SUB-vs-FULL RESULTS DIFFER IN {}'
+            line2 = '\n  when subfrac={:.3f}, rtol={:.4f}, seed={}'
+            line3 = '\n  with sub={:.3f}, full={:.3f}, rdiff={:.4f}'
+            msg += line1.format(cyr)
+            msg += line2.format(subfrac, reltol, rn_seed)
+            msg += line3.format(taxes_subsample[cyr],
+                                taxes_fullsample[cyr],
+                                reldiff)
+    if msg:
         raise ValueError(msg)
 
 
@@ -126,28 +117,77 @@ def mtr_bin_counts(mtr_data, bin_edges, recid):
     res = ''
     (bincount, _) = np.histogram(mtr_data.round(decimals=4), bins=bin_edges)
     sum_bincount = np.sum(bincount)
-    res += '{} :'.format(sum_bincount)
+    res += f'{sum_bincount} :'
     for idx in range(len(bin_edges) - 1):
-        res += ' {:6d}'.format(bincount[idx])
+        res += f' {bincount[idx]:6d}'
     res += '\n'
     if sum_bincount < mtr_data.size:
         res += 'WARNING: sum of bin counts is too low\n'
-        recinfo = '         mtr={:.2f} for recid={}\n'
         mtr_min = mtr_data.min()
         mtr_max = mtr_data.max()
         bin_min = min(bin_edges)
         bin_max = max(bin_edges)
         if mtr_min < bin_min:
-            res += '         min(mtr)={:.2f}\n'.format(mtr_min)
+            res += f'         min(mtr)={mtr_min:.2f}\n'
             for idx in range(mtr_data.size):
                 if mtr_data[idx] < bin_min:
-                    res += recinfo.format(mtr_data[idx], recid[idx])
+                    res += (
+                        f'         mtr={mtr_data[idx]:.2f} '
+                        f'for recid={recid[idx]}\n'
+                    )
         if mtr_max > bin_max:
-            res += '         max(mtr)={:.2f}\n'.format(mtr_max)
+            res += f'         max(mtr)={mtr_max:.2f}\n'
             for idx in range(mtr_data.size):
                 if mtr_data[idx] > bin_max:
-                    res += recinfo.format(mtr_data[idx], recid[idx])
+                    res += (
+                        f'         mtr={mtr_data[idx]:.2f} '
+                        f'for recid={recid[idx]}\n'
+                    )
     return res
+
+
+def nonsmall_diffs(linelist1, linelist2, small=0.0):
+    """
+    Return True if line lists differ significantly; otherwise return False.
+    Significant numerical difference means one or more numbers differ (between
+    linelist1 and linelist2) by more than the specified small amount.
+    """
+    # embedded function used only in nonsmall_diffs function
+    def isfloat(value):
+        """
+        Return True if value can be cast to float; otherwise return False.
+        """
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
+    # begin nonsmall_diffs logic
+    assert isinstance(linelist1, list)
+    assert isinstance(linelist2, list)
+    if len(linelist1) != len(linelist2):
+        return True
+    assert 0.0 <= small <= 1.0
+    epsilon = 1e-6
+    smallamt = small + epsilon
+    for line1, line2 in zip(linelist1, linelist2):
+        if line1 == line2:
+            continue
+        tokens1 = line1.replace(',', '').split()
+        tokens2 = line2.replace(',', '').split()
+        for tok1, tok2 in zip(tokens1, tokens2):
+            tok1_isfloat = isfloat(tok1)
+            tok2_isfloat = isfloat(tok2)
+            if tok1_isfloat and tok2_isfloat:
+                if abs(float(tok1) - float(tok2)) <= smallamt:
+                    continue
+                return True
+            if not tok1_isfloat and not tok2_isfloat:
+                if tok1 == tok2:
+                    continue
+                return True
+            return True
+        return False
 
 
 @pytest.mark.requires_pufcsv
@@ -167,7 +207,7 @@ def test_mtr(tests_path, puf_path):
         res += 'MTR computed using NEGATIVE finite_diff '
     else:
         res += 'MTR computed using POSITIVE finite_diff '
-    res += 'for tax year {}\n'.format(MTR_TAX_YEAR)
+    res += f'for tax year {MTR_TAX_YEAR}\n'
     # create a Policy object (clp) containing current-law policy parameters
     clp = Policy()
     clp.set_year(MTR_TAX_YEAR)
@@ -176,15 +216,15 @@ def test_mtr(tests_path, puf_path):
     recid = puf.RECID  # pylint: disable=no-member
     # create a Calculator object using clp policy and puf records
     calc = Calculator(policy=clp, records=puf)
-    res += '{} = {}\n'.format('Total number of data records', puf.array_length)
+    res += f'Total number of data records = {puf.array_length}\n'
     res += 'PTAX mtr histogram bin edges:\n'
-    res += '     {}\n'.format(PTAX_MTR_BIN_EDGES)
+    res += f'     {PTAX_MTR_BIN_EDGES}\n'
     res += 'ITAX mtr histogram bin edges:\n'
-    res += '     {}\n'.format(ITAX_MTR_BIN_EDGES)
+    res += f'     {ITAX_MTR_BIN_EDGES}\n'
     variable_header = 'PTAX and ITAX mtr histogram bin counts for'
     # compute marginal tax rate (mtr) histograms for each mtr variable
     for var_str in Calculator.MTR_VALID_VARIABLES:
-        zero_out = (var_str == 'e01400')
+        zero_out = var_str == 'e01400'
         (mtr_ptax, mtr_itax, _) = calc.mtr(variable_str=var_str,
                                            negative_finite_diff=MTR_NEG_DIFF,
                                            zero_out_calculated_vars=zero_out,
@@ -194,9 +234,7 @@ def test_mtr(tests_path, puf_path):
             assert np.allclose((calc.array('iitax') +
                                 calc.array('payrolltax')),
                                calc.array('combined'))
-            assert np.allclose((calc.array('ptax_was') +
-                                calc.array('setax') +
-                                calc.array('ptax_amc')),
+            assert np.allclose(calc.array('ptax_was'),
                                calc.array('payrolltax'))
             assert np.allclose(calc.array('c21060') - calc.array('c21040'),
                                calc.array('c04470'))
@@ -212,17 +250,17 @@ def test_mtr(tests_path, puf_path):
             # only MARS==2 filing units have valid MTR values
             mtr_ptax = mtr_ptax[calc.array('MARS') == 2]
             mtr_itax = mtr_itax[calc.array('MARS') == 2]
-        res += '{} {}:\n'.format(variable_header, var_str)
+        res += f'{variable_header} {var_str}:\n'
         res += mtr_bin_counts(mtr_ptax, PTAX_MTR_BIN_EDGES, recid)
         res += mtr_bin_counts(mtr_itax, ITAX_MTR_BIN_EDGES, recid)
     # check for differences between actual and expected results
     mtrres_path = os.path.join(tests_path, 'pufcsv_mtr_expect.txt')
-    with open(mtrres_path, 'r') as expected_file:
+    with open(mtrres_path, 'r', encoding='utf-8') as expected_file:
         txt = expected_file.read()
     expected_results = txt.rstrip('\n\t ') + '\n'  # cleanup end of file txt
     if nonsmall_diffs(res.splitlines(True), expected_results.splitlines(True)):
-        new_filename = '{}{}'.format(mtrres_path[:-10], 'actual.txt')
-        with open(new_filename, 'w') as new_file:
+        new_filename = f'{mtrres_path[:-10]}actual.txt'
+        with open(new_filename, 'w', encoding='utf-8') as new_file:
             new_file.write(res)
         msg = 'PUFCSV MTR RESULTS DIFFER\n'
         msg += '-------------------------------------------------\n'
@@ -253,7 +291,7 @@ def test_mtr_pt_active(puf_subsample):
     assert min(mtr1_e00900p) > -1
     assert min(mtr1_e26270) > -1
     # change PT rates, calc2
-    reform2 = {reform_year: {'_PT_rt7': [0.35]}}
+    reform2 = {'PT_rt7': {reform_year: 0.35}}
     pol2 = Policy()
     pol2.implement_reform(reform2)
     calc2 = Calculator(policy=pol2, records=rec)
@@ -264,7 +302,7 @@ def test_mtr_pt_active(puf_subsample):
     assert min(mtr2_e00900p) > -1
     assert min(mtr2_e26270) > -1
     # change PT_wages_active_income
-    reform3 = {reform_year: {'_PT_wages_active_income': [True]}}
+    reform3 = {'PT_wages_active_income': {reform_year: True}}
     pol3 = Policy()
     pol3.implement_reform(reform3)
     calc3 = Calculator(policy=pol3, records=rec)
@@ -275,8 +313,10 @@ def test_mtr_pt_active(puf_subsample):
     assert min(mtr3_e00900p) > -1
     assert min(mtr3_e26270) > -1
     # change PT rates and PT_wages_active_income
-    reform4 = {reform_year: {'_PT_wages_active_income': [True],
-                             '_PT_rt7': [0.35]}}
+    reform4 = {
+        'PT_wages_active_income': {reform_year: True},
+        'PT_rt7': {reform_year: 0.35}
+    }
     pol4 = Policy()
     pol4.implement_reform(reform4)
     calc4 = Calculator(policy=pol4, records=rec)
@@ -302,14 +342,14 @@ def test_credit_reforms(puf_subsample):
     calc1.calc_all()
     itax1 = calc1.weighted_total('iitax')
     # create personal-refundable-credit-reform Calculator object, calc2
-    reform = {reform_year: {'_II_credit': [[1000, 1000, 1000, 1000, 1000]]}}
+    reform = {'II_credit': {reform_year: [1000, 1000, 1000, 1000, 1000]}}
     pol.implement_reform(reform)
     calc2 = Calculator(policy=pol, records=rec)
     calc2.advance_to_year(reform_year)
     calc2.calc_all()
     itax2 = calc2.weighted_total('iitax')
     # create personal-nonrefundable-credit-reform Calculator object, calc3
-    reform = {reform_year: {'_II_credit_nr': [[1000, 1000, 1000, 1000, 1000]]}}
+    reform = {'II_credit_nr': {reform_year: [1000, 1000, 1000, 1000, 1000]}}
     pol = Policy()
     pol.implement_reform(reform)
     calc3 = Calculator(policy=pol, records=rec)
@@ -332,7 +372,7 @@ def test_puf_availability(tests_path, puf_path):
     pufvars = set(list(pufdf))
     # make set of variable names that are marked as puf.csv available
     rvpath = os.path.join(tests_path, '..', 'records_variables.json')
-    with open(rvpath, 'r') as rvfile:
+    with open(rvpath, 'r', encoding='utf-8') as rvfile:
         rvdict = json.load(rvfile)
     recvars = set()
     for vname, vdict in rvdict['read'].items():
